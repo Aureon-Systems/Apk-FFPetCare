@@ -20,16 +20,6 @@ export default function Layout() {
       
       {/* Abas do Menu */}
       <Tabs.Screen
-        name="main"
-        options={{
-          title: 'Início',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      
-      <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',
