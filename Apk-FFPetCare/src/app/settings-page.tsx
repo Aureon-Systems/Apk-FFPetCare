@@ -13,8 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { styles, colors, radius } from "./style-settings";
-import { clearSession } from "../_layout";
+import { styles, colors, radius } from "../styles/style-settings";
+import { clearSession } from "./_layout";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 

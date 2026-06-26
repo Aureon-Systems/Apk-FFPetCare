@@ -13,8 +13,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-import { styles, colors } from "./style-login";
-import { writeSession } from "../_layout";
+import { styles, colors } from "../styles/style-login";
+import { writeSession } from "./_layout";
 
 // ─── Credenciais estáticas ────────────────────────────────────────────────────
 // Altere aqui para as credenciais reais do Felipe.
@@ -66,7 +66,7 @@ export default function LoginPage() {
     await writeSession();
 
     setLoading(false);
-    router.replace("dashboard/dashboard-page");
+    router.replace("../../dashboard-page");
   };
 
   const isFormFilled = email.trim().length > 0 && password.length > 0;

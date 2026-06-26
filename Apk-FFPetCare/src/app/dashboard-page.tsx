@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 
-import { styles, colors, radius } from "./style-dashboard";
+import { styles, colors, radius } from "../styles/style-dashboard";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
