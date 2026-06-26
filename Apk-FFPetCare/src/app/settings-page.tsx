@@ -2,13 +2,14 @@ import React, { useState, useCallback } from "react";
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { loadSettings, saveSettings, clearSession, sessionDaysLeft } from "../lib/storage";
+import { useAuth } from "./_layout";
 import { AppSettings } from "../lib/types";
 import { styles, colors } from "../styles/style-settings";
 
 export default function SettingsPage() {
-  const router = useRouter();
+  const { signOut } = useAuth();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [daysLeft, setDaysLeft] = useState(0);
 
@@ -29,7 +30,7 @@ export default function SettingsPage() {
       { text: "Cancelar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: async () => {
         await clearSession();
-        router.replace("/login-page");
+        await signOut();
       }},
     ]);
   };

@@ -5,41 +5,50 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { writeSession } from "../lib/storage";
+import { useAuth } from "./_layout";
 import { styles, colors } from "../styles/style-login";
 
-// ─── Credenciais estáticas ────────────────────────────────────────────────────
-const EMAIL = "felipe@ffpetcare.com";
+// ─── Credenciais ──────────────────────────────────────────────────────────────
+const EMAIL    = "felipe@ffpetcare.com";
 const PASSWORD = "PetCare@2025";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [pwdFocused, setPwdFocused] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();           // ← usa context, não router.replace()
+
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [showPwd, setShowPwd]     = useState(false);
+  const [emailFocused, setEF]     = useState(false);
+  const [pwdFocused, setPF]       = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [loading, setLoading]     = useState(false);
   const pwdRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
     Keyboard.dismiss();
     setError(null);
+
     if (!email.trim() || !password) {
       setError("Preencha e-mail e senha.");
       return;
     }
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
+
+    // Sem delay artificial — resposta imediata
     if (email.trim().toLowerCase() !== EMAIL || password !== PASSWORD) {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
       return;
     }
+
+    // 1. Grava a sessão no AsyncStorage
     await writeSession();
-    router.replace("/dashboard-page");
+    // 2. Sinaliza ao layout → ele atualiza status → useEffect redireciona
+    //    Não chamamos router.replace() aqui — evita conflito de navegação
+    await signIn();
+    // loading permanece true até o redirect acontecer (< 1 frame)
   };
 
   const filled = email.trim().length > 0 && password.length > 0;
@@ -63,14 +72,21 @@ export default function LoginPage() {
         <View style={styles.form}>
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>E-mail</Text>
-            <View style={[styles.inputRow, emailFocused && styles.inputRowFocused, !!error && styles.inputRowError]}>
-              <Ionicons name="mail-outline" size={18} color={emailFocused ? colors.cyan : colors.textMuted} />
+            <View style={[
+              styles.inputRow,
+              emailFocused && styles.inputRowFocused,
+              !!error && styles.inputRowError,
+            ]}>
+              <Ionicons
+                name="mail-outline" size={18}
+                color={emailFocused ? colors.cyan : colors.textMuted}
+              />
               <TextInput
                 style={styles.input}
                 value={email}
                 onChangeText={(v) => { setEmail(v); setError(null); }}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
+                onFocus={() => setEF(true)}
+                onBlur={() => setEF(false)}
                 placeholder="seu@email.com"
                 placeholderTextColor={colors.textMuted}
                 autoCapitalize="none"
@@ -84,15 +100,22 @@ export default function LoginPage() {
 
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Senha</Text>
-            <View style={[styles.inputRow, pwdFocused && styles.inputRowFocused, !!error && styles.inputRowError]}>
-              <Ionicons name="lock-closed-outline" size={18} color={pwdFocused ? colors.cyan : colors.textMuted} />
+            <View style={[
+              styles.inputRow,
+              pwdFocused && styles.inputRowFocused,
+              !!error && styles.inputRowError,
+            ]}>
+              <Ionicons
+                name="lock-closed-outline" size={18}
+                color={pwdFocused ? colors.cyan : colors.textMuted}
+              />
               <TextInput
                 ref={pwdRef}
                 style={styles.input}
                 value={password}
                 onChangeText={(v) => { setPassword(v); setError(null); }}
-                onFocus={() => setPwdFocused(true)}
-                onBlur={() => setPwdFocused(false)}
+                onFocus={() => setPF(true)}
+                onBlur={() => setPF(false)}
                 placeholder="••••••••"
                 placeholderTextColor={colors.textMuted}
                 secureTextEntry={!showPwd}
@@ -101,8 +124,15 @@ export default function LoginPage() {
                 onSubmitEditing={handleLogin}
                 editable={!loading}
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPwd((p) => !p)}>
-                <Ionicons name={showPwd ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPwd((p) => !p)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={showPwd ? "eye-off-outline" : "eye-outline"}
+                  size={18} color={colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -122,7 +152,12 @@ export default function LoginPage() {
           >
             {loading
               ? <ActivityIndicator size="small" color="#1A2030" />
-              : <><Text style={styles.loginBtnText}>Entrar</Text><Ionicons name="arrow-forward" size={18} color="#1A2030" /></>
+              : (
+                <>
+                  <Text style={styles.loginBtnText}>Entrar</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#1A2030" />
+                </>
+              )
             }
           </TouchableOpacity>
         </View>
