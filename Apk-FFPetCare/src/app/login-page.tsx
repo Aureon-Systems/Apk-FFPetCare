@@ -10,8 +10,8 @@ import { useAuth } from "./_layout";
 import { styles, colors } from "../styles/style-login";
 
 // ─── Credenciais ──────────────────────────────────────────────────────────────
-const EMAIL    = "felipe@ffpetcare.com";
-const PASSWORD = "PetCare@2025";
+const EMAIL    = "admin";
+const PASSWORD = "admin2025";
 
 export default function LoginPage() {
   const { signIn } = useAuth();           // ← usa context, não router.replace()
