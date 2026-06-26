@@ -1,120 +1,51 @@
 import { StyleSheet, Platform } from "react-native";
+import { C, R, shadow } from "../lib/theme";
 
-// ─── Tokens (espelha style-dashboard para consistência visual) ────────────────
-
-export const colors = {
-  cyan: "#00E5FF",
-  cyanLight: "#E0FBFF",
-  background: "#F5F7FA",
-  surface: "#FFFFFF",
-  surfaceAlt: "#F0F4F8",
-  border: "#E8ECF0",
-  textPrimary: "#1A2030",
-  textSecondary: "#5A6478",
-  textMuted: "#9BA3B0",
-  danger: "#F44336",
-  dangerLight: "#FFEBEE",
-  white: "#FFFFFF",
-} as const;
-
-export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  pill: 999,
-} as const;
-
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+export { C as colors, R as radius };
 
 export const styles = StyleSheet.create({
-  // ── Estrutura ────────────────────────────────────────────────────────────────
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 48,
-  },
+  safeArea: { flex: 1, backgroundColor: C.bg },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 48 },
 
-  // ── Header ───────────────────────────────────────────────────────────────────
   header: {
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: C.border,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+  headerTitle: { fontSize: 22, fontWeight: "700", color: C.text, letterSpacing: -0.5 },
+  headerSub: { fontSize: 13, color: C.textMuted, marginTop: 2 },
 
-  // ── Card de perfil ────────────────────────────────────────────────────────────
   profileCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
     padding: 20,
     marginTop: 24,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: { elevation: 3 },
-    }),
+    ...shadow(2),
   },
   profileAvatar: {
     width: 56,
     height: 56,
-    borderRadius: radius.pill,
-    backgroundColor: colors.cyanLight,
+    borderRadius: R.pill,
+    backgroundColor: C.cyanLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  profileRole: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  profileEditBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  profileName: { fontSize: 18, fontWeight: "700", color: C.text },
+  profileRole: { fontSize: 13, color: C.textSub, marginTop: 2 },
+  sessionBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.pill, backgroundColor: C.cyanLight, marginLeft: "auto" },
+  sessionBadgeText: { fontSize: 12, fontWeight: "700", color: C.cyan },
 
-  // ── Seção de grupo ────────────────────────────────────────────────────────────
   sectionLabel: {
     fontSize: 12,
     fontWeight: "700",
-    color: colors.textMuted,
+    color: C.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginTop: 28,
@@ -122,21 +53,11 @@ export const styles = StyleSheet.create({
     marginLeft: 4,
   },
   group: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    backgroundColor: C.surface,
+    borderRadius: R.md,
     overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-      },
-      android: { elevation: 1 },
-    }),
+    ...shadow(1),
   },
-
-  // ── Linha de configuração ─────────────────────────────────────────────────────
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -144,86 +65,32 @@ export const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  rowSeparator: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: 52, // alinha após o ícone
-  },
-  rowIconWrap: {
+  rowSep: { height: 1, backgroundColor: C.border, marginLeft: 52 },
+  rowIcon: {
     width: 32,
     height: 32,
-    borderRadius: radius.sm,
+    borderRadius: R.sm,
     alignItems: "center",
     justifyContent: "center",
   },
-  rowContent: {
-    flex: 1,
-  },
-  rowLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: colors.textPrimary,
-  },
-  rowValue: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  rowChevron: {
-    marginLeft: 4,
-  },
+  rowLabel: { fontSize: 15, fontWeight: "500", color: C.text, flex: 1 },
+  rowValue: { fontSize: 13, color: C.textMuted },
 
-  // ── Campo editável inline ─────────────────────────────────────────────────────
-  inlineInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-    color: colors.textPrimary,
-    padding: 0, // remove padding nativo do TextInput
-  },
-  inlineInputEditing: {
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.cyan,
-  },
+  inlineInput: { flex: 1, fontSize: 15, color: C.text, padding: 0 },
+  inlineInputActive: { borderBottomWidth: 1.5, borderBottomColor: C.cyan },
 
-  // ── Badge de sessão ───────────────────────────────────────────────────────────
-  sessionBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.cyanLight,
-  },
-  sessionBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.cyan,
-  },
-
-  // ── Botão de logout ───────────────────────────────────────────────────────────
   logoutBtn: {
     marginTop: 24,
-    backgroundColor: colors.dangerLight,
-    borderRadius: radius.md,
+    backgroundColor: C.dangerLight,
+    borderRadius: R.md,
     paddingVertical: 15,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
   },
-  logoutText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.danger,
-  },
+  logoutText: { fontSize: 15, fontWeight: "700", color: C.danger },
 
-  // ── Rodapé ────────────────────────────────────────────────────────────────────
-  footer: {
-    alignItems: "center",
-    marginTop: 32,
-    gap: 4,
-  },
-  footerText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
+  footer: { alignItems: "center", marginTop: 32, gap: 4 },
+  footerText: { fontSize: 12, color: C.textMuted },
 });

@@ -1,278 +1,103 @@
 import React, { useState, useCallback } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, ScrollView, TouchableOpacity,
+  Modal, TextInput, Alert, KeyboardAvoidingView,
+  Platform, StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
-
-import { styles, colors, radius } from "../styles/style-dashboard";
+import { useFocusEffect, useRouter } from "expo-router";
+import {
+  loadDogs, saveDogs, isActiveToday, calcTotalValue,
+  formatCurrency, fmtDate, monthRevenue, parseLocalDate, todayISO,
+} from "../lib/storage";
+import { styles, colors } from "../styles/style-dashboard";
+import { Dog, DailyTask, DogSize } from "../lib/types";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-const DOGS_KEY = "ffpetcare_dogs";
-const MAX_CAPACITY = 6; // capacidade máxima do hotel do Felipe
+const MAX_CAPACITY = 6;
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-type DogSize = "Pequeno" | "Médio" | "Grande";
-type ServiceType = "Hospedagem" | "Passeio" | "Medicamento";
-
-export interface Dog {
-  id: string;
-  name: string;
-  ownerName: string;
-  size: DogSize;
-  serviceType: ServiceType;
-  checkIn: string;   // ISO date string
-  checkOut: string;  // ISO date string
-  medicationTimes: string[]; // ex: ["08:00", "20:00"]
-  walkTimes: string[];       // ex: ["07:00", "17:00"]
-  dailyRate: number;         // R$ por diária (Hospedagem)
-  medicationFee: number;     // R$ por dia (Medicamento)
-  notificationIds: string[]; // IDs das notificações agendadas
-}
-
-// ─── Utilitários ─────────────────────────────────────────────────────────────
-
-async function loadDogs(): Promise<Dog[]> {
-  try {
-    const raw = await AsyncStorage.getItem(DOGS_KEY);
-    return raw ? (JSON.parse(raw) as Dog[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveDogs(dogs: Dog[]): Promise<void> {
-  await AsyncStorage.setItem(DOGS_KEY, JSON.stringify(dogs));
-}
-
-function isActiveToday(dog: Dog): boolean {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const checkIn = new Date(dog.checkIn);
-  const checkOut = new Date(dog.checkOut);
-  checkIn.setHours(0, 0, 0, 0);
-  checkOut.setHours(0, 0, 0, 0);
-  return checkIn <= today && today <= checkOut;
-}
-
-function calcTotalValue(dog: Dog): number {
-  const checkIn = new Date(dog.checkIn);
-  const checkOut = new Date(dog.checkOut);
-  const msPerDay = 86_400_000;
-  const days = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / msPerDay));
-  const hosting = dog.serviceType === "Hospedagem" ? days * dog.dailyRate : 0;
-  const med = dog.medicationTimes.length > 0 ? days * dog.medicationFee : 0;
-  return hosting + med;
-}
-
-function formatCurrency(value: number): string {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
-
-function monthRevenue(dogs: Dog[]): number {
-  const now = new Date();
-  return dogs
-    .filter((d) => {
-      const co = new Date(d.checkOut);
-      return co.getMonth() === now.getMonth() && co.getFullYear() === now.getFullYear();
-    })
-    .reduce((sum, d) => sum + calcTotalValue(d), 0);
-}
-
-function capacityStatus(count: number): { label: string; color: string; bg: string } {
-  const ratio = count / MAX_CAPACITY;
-  if (ratio < 0.5) return { label: "Disponível", color: colors.success, bg: colors.successLight };
-  if (ratio < 0.84) return { label: "Moderado", color: colors.warning, bg: colors.warningLight };
+function capStatus(n: number) {
+  const r = n / MAX_CAPACITY;
+  if (r < 0.5) return { label: "Disponível", color: colors.success, bg: colors.successLight };
+  if (r < 0.84) return { label: "Moderado", color: colors.warning, bg: colors.warningLight };
   return { label: "Lotado", color: colors.danger, bg: colors.dangerLight };
 }
 
-function serviceTag(type: ServiceType): { label: string; color: string; bg: string } {
-  switch (type) {
-    case "Hospedagem":
-      return { label: "🏠 Hospedagem", color: "#1565C0", bg: "#E3F2FD" };
-    case "Passeio":
-      return { label: "🦮 Passeio", color: "#2E7D32", bg: "#E8F5E9" };
-    case "Medicamento":
-      return { label: "💊 Medicamento", color: "#6A1B9A", bg: "#F3E5F5" };
-  }
+function sizeEmoji(s: DogSize) {
+  return s === "Grande" ? "🐕‍🦺" : "🐕";
 }
 
-function sizeEmoji(size: DogSize): string {
-  return size === "Pequeno" ? "🐕" : size === "Médio" ? "🐕" : "🐕‍🦺";
+function defaultRate(size: DogSize): string {
+  return size === "Pequeno" ? "50" : size === "Médio" ? "70" : "90";
 }
 
-// ─── Agendamento de notificações ──────────────────────────────────────────────
+// ─── Modal de cadastro de hospedagem ─────────────────────────────────────────
 
-async function scheduleNotificationsForDog(dog: Dog): Promise<string[]> {
-  const ids: string[] = [];
-
-  await Notifications.requestPermissionsAsync();
-
-  // Notificação de check-out (manhã do dia de saída)
-  const checkOutDate = new Date(dog.checkOut);
-  checkOutDate.setHours(8, 0, 0, 0);
-  if (checkOutDate > new Date()) {
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "🐾 Check-out hoje",
-        body: `${dog.name} (${dog.ownerName}) tem saída prevista para hoje.`,
-        sound: true,
-      },
-      trigger: { 
-        type: SchedulableTriggerInputTypes.DATE, // Ou use apenas a string 'date' se preferir
-        date: checkOutDate 
-      },
-    });
-    ids.push(id);
-  }
-
-  // Notificações de medicação
-  for (const time of dog.medicationTimes) {
-    const [hour, minute] = time.split(":").map(Number);
-    const medDate = new Date();
-    medDate.setHours(hour, minute, 0, 0);
-    if (medDate < new Date()) medDate.setDate(medDate.getDate() + 1);
-
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "💊 Medicação",
-        body: `Hora de medicar ${dog.name} (${time}).`,
-        sound: true,
-      },
-      trigger: {
-        hour,
-        minute,
-        repeats: true,
-      } as any,
-    });
-    ids.push(id);
-  }
-
-  return ids;
-}
-
-async function cancelNotificationsForDog(dog: Dog): Promise<void> {
-  for (const id of dog.notificationIds) {
-    await Notifications.cancelScheduledNotificationAsync(id);
-  }
-}
-
-// ─── Formulário de cadastro de cão ───────────────────────────────────────────
-
-const EMPTY_FORM = {
-  name: "",
-  ownerName: "",
+const EMPTY = {
+  name: "", ownerName: "", ownerPhone: "",
   size: "Médio" as DogSize,
-  serviceType: "Hospedagem" as ServiceType,
-  checkIn: new Date().toISOString().split("T")[0],
-  checkOut: new Date(Date.now() + 86_400_000).toISOString().split("T")[0],
-  medicationTimes: "",
-  walkTimes: "",
-  dailyRate: "60",
-  medicationFee: "10",
+  checkIn: todayISO(), checkOut: "",
+  dailyRate: "70",
+  walkTimes: "", medicationTimes: "", notes: "",
 };
 
-interface AddDogModalProps {
+function AddDogModal({ visible, onClose, onSave }: {
   visible: boolean;
   onClose: () => void;
-  onSave: (dog: Dog) => void;
-}
+  onSave: (d: Dog) => void;
+}) {
+  const [f, setF] = useState(EMPTY);
+  const set = (k: keyof typeof EMPTY, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-function AddDogModal({ visible, onClose, onSave }: AddDogModalProps) {
-  const [form, setForm] = useState(EMPTY_FORM);
-
-  const handleSave = async () => {
-    if (!form.name.trim() || !form.ownerName.trim()) {
-      Alert.alert("Campos obrigatórios", "Informe o nome do cão e do dono.");
+  const handleSave = () => {
+    if (!f.name.trim() || !f.ownerName.trim() || !f.checkOut.trim()) {
+      Alert.alert("Campos obrigatórios", "Nome do cão, dono e data de saída são necessários.");
       return;
     }
-
+    const tasks: DailyTask[] = [];
+    f.walkTimes.split(",").map((t) => t.trim()).filter(Boolean).forEach((time, i) =>
+      tasks.push({ id: `w${i}_${Date.now()}`, type: "walk", time, doneOn: [] })
+    );
+    f.medicationTimes.split(",").map((t) => t.trim()).filter(Boolean).forEach((time, i) =>
+      tasks.push({ id: `m${i}_${Date.now()}`, type: "medication", time, doneOn: [] })
+    );
     const dog: Dog = {
       id: `dog_${Date.now()}`,
-      name: form.name.trim(),
-      ownerName: form.ownerName.trim(),
-      size: form.size,
-      serviceType: form.serviceType,
-      checkIn: form.checkIn,
-      checkOut: form.checkOut,
-      medicationTimes: form.medicationTimes
-        ? form.medicationTimes.split(",").map((t) => t.trim()).filter(Boolean)
-        : [],
-      walkTimes: form.walkTimes
-        ? form.walkTimes.split(",").map((t) => t.trim()).filter(Boolean)
-        : [],
-      dailyRate: parseFloat(form.dailyRate) || 60,
-      medicationFee: parseFloat(form.medicationFee) || 0,
-      notificationIds: [],
+      name: f.name.trim(), ownerName: f.ownerName.trim(), ownerPhone: f.ownerPhone.trim(),
+      size: f.size, checkIn: f.checkIn, checkOut: f.checkOut,
+      dailyRate: parseFloat(f.dailyRate) || 70,
+      tasks, notes: f.notes.trim(),
     };
-
-    const nids = await scheduleNotificationsForDog(dog);
-    dog.notificationIds = nids;
-
     onSave(dog);
-    setForm(EMPTY_FORM);
+    setF(EMPTY);
     onClose();
   };
 
-  const field = (
-    label: string,
-    key: keyof typeof EMPTY_FORM,
-    props?: Partial<React.ComponentProps<typeof TextInput>>
-  ) => (
-    <View style={modalStyles.field}>
-      <Text style={modalStyles.label}>{label}</Text>
-      <TextInput
-        style={modalStyles.input}
-        value={String(form[key])}
-        onChangeText={(v) => setForm((prev) => ({ ...prev, [key]: v }))}
-        placeholderTextColor={colors.textMuted}
-        {...props}
-      />
+  const Field = ({ label, fk, ...p }: { label: string; fk: keyof typeof EMPTY } & Partial<React.ComponentProps<typeof TextInput>>) => (
+    <View style={ms.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput style={styles.input} value={String(f[fk])} onChangeText={(v) => set(fk, v)} placeholderTextColor={colors.textMuted} {...p} />
     </View>
   );
 
-  const selectorRow = <T extends string>(
-    label: string,
-    key: keyof typeof EMPTY_FORM,
-    options: T[]
-  ) => (
-    <View style={modalStyles.field}>
-      <Text style={modalStyles.label}>{label}</Text>
-      <View style={modalStyles.selectorRow}>
-        {options.map((opt) => (
+  const Chips = ({ label, fk, opts }: { label: string; fk: keyof typeof EMPTY; opts: string[] }) => (
+    <View style={ms.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.chips}>
+        {opts.map((o) => (
           <TouchableOpacity
-            key={opt}
-            style={[
-              modalStyles.selectorBtn,
-              (form[key] as string) === opt && modalStyles.selectorBtnActive,
-            ]}
-            onPress={() => setForm((prev) => ({ ...prev, [key]: opt }))}
+            key={o}
+            style={[styles.chip, f[fk] === o && styles.chipActive]}
+            onPress={() => {
+              set(fk, o);
+              if (fk === "size") set("dailyRate", defaultRate(o as DogSize));
+            }}
           >
-            <Text
-              style={[
-                modalStyles.selectorText,
-                (form[key] as string) === opt && modalStyles.selectorTextActive,
-              ]}
-            >
-              {opt}
-            </Text>
+            <Text style={[styles.chipText, f[fk] === o && styles.chipTextActive]}>{o}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -281,56 +106,28 @@ function AddDogModal({ visible, onClose, onSave }: AddDogModalProps) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <SafeAreaView style={modalStyles.container}>
-          {/* Header do modal */}
-          <View style={modalStyles.modalHeader}>
-            <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn}>
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
+              <Ionicons name="close" size={22} color={colors.textSub} />
             </TouchableOpacity>
-            <Text style={modalStyles.modalTitle}>Novo Hóspede</Text>
-            <TouchableOpacity onPress={handleSave} style={modalStyles.saveBtn}>
-              <Text style={modalStyles.saveBtnText}>Salvar</Text>
+            <Text style={styles.modalTitle}>Nova Hospedagem</Text>
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSave}>
+              <Text style={styles.modalSaveBtnText}>Salvar</Text>
             </TouchableOpacity>
           </View>
-
-          <ScrollView contentContainerStyle={modalStyles.scroll}>
-            {field("Nome do cão", "name", { placeholder: "Ex: Thor" })}
-            {field("Nome do dono", "ownerName", { placeholder: "Ex: João Silva" })}
-
-            {selectorRow<DogSize>("Porte", "size", ["Pequeno", "Médio", "Grande"])}
-            {selectorRow<ServiceType>("Tipo de serviço", "serviceType", [
-              "Hospedagem",
-              "Passeio",
-              "Medicamento",
-            ])}
-
-            {field("Data de entrada (AAAA-MM-DD)", "checkIn", {
-              placeholder: "2025-07-01",
-              keyboardType: "numbers-and-punctuation",
-            })}
-            {field("Data de saída (AAAA-MM-DD)", "checkOut", {
-              placeholder: "2025-07-05",
-              keyboardType: "numbers-and-punctuation",
-            })}
-
-            {field("Diária R$ (Hospedagem)", "dailyRate", {
-              placeholder: "60",
-              keyboardType: "decimal-pad",
-            })}
-            {field("Taxa medicação R$/dia", "medicationFee", {
-              placeholder: "10",
-              keyboardType: "decimal-pad",
-            })}
-            {field("Horários de medicação (vírgula)", "medicationTimes", {
-              placeholder: "08:00, 20:00",
-            })}
-            {field("Horários de passeio (vírgula)", "walkTimes", {
-              placeholder: "07:00, 17:00",
-            })}
+          <ScrollView contentContainerStyle={styles.modalScroll}>
+            <Field label="Nome do cão *" fk="name" placeholder="Ex: Thor" />
+            <Field label="Dono *" fk="ownerName" placeholder="Ex: João Silva" />
+            <Field label="Telefone do dono" fk="ownerPhone" placeholder="(79) 9 0000-0000" keyboardType="phone-pad" />
+            <Chips label="Porte" fk="size" opts={["Pequeno", "Médio", "Grande"]} />
+            <Field label="Entrada (AAAA-MM-DD) *" fk="checkIn" placeholder={todayISO()} keyboardType="numbers-and-punctuation" />
+            <Field label="Saída (AAAA-MM-DD) *" fk="checkOut" placeholder="2025-07-05" keyboardType="numbers-and-punctuation" />
+            <Field label="Diária R$" fk="dailyRate" keyboardType="decimal-pad" />
+            <Field label="Horários de passeio (sep. vírgula)" fk="walkTimes" placeholder="07:00, 17:00" />
+            <Field label="Horários de medicação (sep. vírgula)" fk="medicationTimes" placeholder="08:00, 20:00" />
+            <Field label="Observações" fk="notes" placeholder="Alimentação especial, temperamento..." multiline numberOfLines={3} />
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -338,372 +135,247 @@ function AddDogModal({ visible, onClose, onSave }: AddDogModalProps) {
   );
 }
 
-// ─── Componente principal: Dashboard ─────────────────────────────────────────
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const [dogs, setDogs] = useState<Dog[]>([]);
-  const [showModal, setShowModal] = useState(false);
+  const [modal, setModal] = useState(false);
+  const router = useRouter();
 
-  // Recarrega cães ao entrar na tela (foco)
-  useFocusEffect(
-    useCallback(() => {
-      loadDogs().then(setDogs);
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { loadDogs().then(setDogs); }, []));
 
-  const activeDogs = dogs.filter(isActiveToday);
-  const hostedCount = activeDogs.filter((d) => d.serviceType === "Hospedagem").length;
-  const walkCount = activeDogs.filter((d) => d.serviceType === "Passeio").length;
-  const medCount = activeDogs.filter((d) => d.serviceType === "Medicamento").length;
+  const active = dogs.filter(isActiveToday);
+  const cap = capStatus(active.length);
+  const fill = Math.min(active.length / MAX_CAPACITY, 1);
+  const fillColor = fill < 0.5 ? colors.success : fill < 0.84 ? colors.warning : colors.danger;
   const revenue = monthRevenue(dogs);
-  const capacity = capacityStatus(hostedCount);
-  const fillRatio = Math.min(hostedCount / MAX_CAPACITY, 1);
 
-  const progressColor =
-    fillRatio < 0.5 ? colors.success : fillRatio < 0.84 ? colors.warning : colors.danger;
+  // Próximos eventos (7 dias)
+  const upcoming = (() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const limit = new Date(today); limit.setDate(limit.getDate() + 7);
+    const evts: { dog: Dog; type: "in" | "out"; date: string }[] = [];
+    dogs.forEach((d) => {
+      const ci = parseLocalDate(d.checkIn);
+      const co = parseLocalDate(d.checkOut);
+      if (ci >= today && ci <= limit) evts.push({ dog: d, type: "in", date: d.checkIn });
+      if (co >= today && co <= limit) evts.push({ dog: d, type: "out", date: d.checkOut });
+    });
+    return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  })();
 
-  // Salva novo cão e atualiza state
-  const handleSaveDog = useCallback(
-    async (dog: Dog) => {
-      const updated = [...dogs, dog];
-      setDogs(updated);
-      await saveDogs(updated);
-    },
-    [dogs]
-  );
+  const handleSave = useCallback(async (dog: Dog) => {
+    const updated = [...dogs, dog];
+    setDogs(updated);
+    await saveDogs(updated);
+  }, [dogs]);
 
-  // Remove cão com confirmação
-  const handleRemoveDog = useCallback(
-    (dog: Dog) => {
-      Alert.alert(
-        "Remover hóspede",
-        `Deseja remover ${dog.name}? As notificações associadas serão canceladas.`,
-        [
-          { text: "Cancelar", style: "cancel" },
-          {
-            text: "Remover",
-            style: "destructive",
-            onPress: async () => {
-              await cancelNotificationsForDog(dog);
-              const updated = dogs.filter((d) => d.id !== dog.id);
-              setDogs(updated);
-              await saveDogs(updated);
-            },
-          },
-        ]
-      );
-    },
-    [dogs]
-  );
+  const handleRemove = useCallback((dog: Dog) => {
+    Alert.alert("Remover hóspede", `Remover ${dog.name}?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Remover", style: "destructive",
+        onPress: async () => {
+          const updated = dogs.filter((d) => d.id !== dog.id);
+          setDogs(updated); await saveDogs(updated);
+        },
+      },
+    ]);
+  }, [dogs]);
 
   const greeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return "Bom dia";
-    if (h < 18) return "Boa tarde";
-    return "Boa noite";
+    return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <View>
           <Text style={styles.headerGreeting}>{greeting()}, Felipe 👋</Text>
-          <Text style={styles.headerTitle}>FFPetCare</Text>
+          <Text style={styles.headerTitle}>Painel</Text>
         </View>
         <View style={styles.headerAvatar}>
           <Ionicons name="paw" size={20} color={colors.cyan} />
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* ── Card de faturamento do mês ──────────────────────────────────── */}
-        <View style={{ marginTop: 20 }}>
-          <View style={styles.billingCard}>
-            <View style={styles.billingLeft}>
-              <Text style={styles.billingLabel}>FATURAMENTO DO MÊS</Text>
-              <Text style={styles.billingValue}>{formatCurrency(revenue)}</Text>
-              <Text style={styles.billingSubtext}>
-                {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-              </Text>
-            </View>
-            <View style={styles.billingIconWrap}>
-              <Ionicons name="wallet-outline" size={26} color={colors.textPrimary} />
-            </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+
+        {/* Faturamento */}
+        <View style={styles.billingCard}>
+          <View>
+            <Text style={styles.billingLabel}>FATURAMENTO DO MÊS</Text>
+            <Text style={styles.billingValue}>{formatCurrency(revenue)}</Text>
+            <Text style={styles.billingPeriod}>
+              {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            </Text>
+          </View>
+          <View style={styles.billingIcon}>
+            <Ionicons name="wallet-outline" size={26} color="#1A2030" />
           </View>
         </View>
 
-        {/* ── Controle de capacidade ──────────────────────────────────────── */}
+        {/* Capacidade */}
         <View style={styles.capacityCard}>
           <View style={styles.capacityRow}>
-            <Text style={styles.capacityLabel}>Capacidade da hospedagem</Text>
-            <View style={[styles.capacityBadge, { backgroundColor: capacity.bg }]}>
-              <Text style={[styles.capacityBadgeText, { color: capacity.color }]}>
-                {capacity.label}
-              </Text>
+            <Text style={styles.capacityLabel}>Capacidade do hotel</Text>
+            <View style={[styles.badge, { backgroundColor: cap.bg }]}>
+              <Text style={[styles.badgeText, { color: cap.color }]}>{cap.label}</Text>
             </View>
           </View>
-
           <View style={styles.capacityNumbers}>
-            <Text style={styles.capacityCurrent}>{hostedCount}</Text>
-            <Text style={styles.capacityDivider}>/</Text>
+            <Text style={styles.capacityCurrent}>{active.length}</Text>
+            <Text style={styles.capacitySlash}>/</Text>
             <Text style={styles.capacityMax}>{MAX_CAPACITY}</Text>
           </View>
-          <Text style={styles.capacitySubtext}>
-            {MAX_CAPACITY - hostedCount > 0
-              ? `${MAX_CAPACITY - hostedCount} vaga${MAX_CAPACITY - hostedCount > 1 ? "s" : ""} disponíve${MAX_CAPACITY - hostedCount > 1 ? "is" : "l"} hoje`
-              : "Hotel completo hoje"}
+          <Text style={styles.capacitySub}>
+            {MAX_CAPACITY - active.length > 0
+              ? `${MAX_CAPACITY - active.length} vaga${MAX_CAPACITY - active.length > 1 ? "s" : ""} disponíve${MAX_CAPACITY - active.length > 1 ? "is" : "l"}`
+              : "Hotel lotado hoje"}
           </Text>
-
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${fillRatio * 100}%`, backgroundColor: progressColor },
-              ]}
-            />
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${fill * 100}%`, backgroundColor: fillColor }]} />
           </View>
-          <View style={styles.progressLabels}>
-            <Text style={styles.progressLabelText}>0</Text>
-            <Text style={styles.progressLabelText}>{MAX_CAPACITY}</Text>
+          <View style={styles.trackLabels}>
+            <Text style={styles.trackLabel}>0</Text>
+            <Text style={styles.trackLabel}>{MAX_CAPACITY}</Text>
           </View>
         </View>
 
-        {/* ── Grid de métricas ────────────────────────────────────────────── */}
+        {/* Métricas */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Hoje</Text>
-        </View>
-
-        <View style={styles.metricsGrid}>
-          <MetricCard
-            icon="home-outline"
-            iconBg={colors.cyanLight}
-            iconColor={colors.cyan}
-            value={hostedCount}
-            label="Hospedados"
-          />
-          <MetricCard
-            icon="walk-outline"
-            iconBg={colors.successLight}
-            iconColor={colors.success}
-            value={walkCount}
-            label="Passeios"
-          />
-          <MetricCard
-            icon="medical-outline"
-            iconBg="#F3E5F5"
-            iconColor="#8E24AA"
-            value={medCount}
-            label="Medicações"
-          />
-          <MetricCard
-            icon="paw-outline"
-            iconBg={colors.surfaceAlt}
-            iconColor={colors.textSecondary}
-            value={activeDogs.length}
-            label="Total ativo"
-          />
-        </View>
-
-        {/* ── Lista de cães ativos ─────────────────────────────────────────── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Hóspedes ativos</Text>
-          <Text style={styles.sectionAction} onPress={() => setShowModal(true)}>
-            + Adicionar
+          <Text style={styles.sectionAction} onPress={() => router.push("/routine-page")}>
+            Ver rotina →
           </Text>
         </View>
+        <View style={styles.metricsGrid}>
+          <Metric icon="home-outline" bg={colors.cyanLight} color={colors.cyan} v={active.length} label="Hospedados" />
+          <Metric
+            icon="walk-outline" bg={colors.successLight} color={colors.success}
+            v={active.filter((d) => d.tasks.some((t) => t.type === "walk")).length}
+            label="Com passeio"
+          />
+          <Metric
+            icon="medical-outline" bg={colors.purpleLight} color={colors.purple}
+            v={active.filter((d) => d.tasks.some((t) => t.type === "medication")).length}
+            label="Com medicação"
+          />
+          <Metric
+            icon="cash-outline" bg={colors.successLight} color={colors.success}
+            v={active.length}
+            label="Diárias hoje"
+            currency={formatCurrency(active.reduce((s, d) => s + d.dailyRate, 0))}
+          />
+        </View>
 
-        {activeDogs.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="paw-outline" size={40} color={colors.border} />
-            <Text style={styles.emptyText}>Nenhum hóspede ativo hoje</Text>
+        {/* Próximos eventos */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Próximos 7 dias</Text>
+        </View>
+        {upcoming.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="calendar-outline" size={36} color={colors.border} />
+            <Text style={styles.emptyText}>Nenhum evento próximo</Text>
           </View>
         ) : (
-          activeDogs.map((dog) => {
-            const tag = serviceTag(dog.serviceType);
-            return (
-              <TouchableOpacity
-                key={dog.id}
-                style={styles.dogCard}
-                onLongPress={() => handleRemoveDog(dog)}
-                activeOpacity={0.85}
-              >
-                {/* Avatar */}
-                <View style={styles.dogAvatar}>
-                  <Text style={{ fontSize: 22 }}>{sizeEmoji(dog.size)}</Text>
-                </View>
-
-                {/* Info */}
-                <View style={styles.dogInfo}>
-                  <Text style={styles.dogName}>{dog.name}</Text>
-                  <Text style={styles.dogOwner}>Dono: {dog.ownerName}</Text>
-                  <View style={styles.dogMeta}>
-                    <View style={[styles.dogTag, { backgroundColor: tag.bg }]}>
-                      <Text style={[styles.dogTagText, { color: tag.color }]}>{tag.label}</Text>
-                    </View>
-                    <View style={[styles.dogTag, { backgroundColor: colors.surfaceAlt }]}>
-                      <Text style={[styles.dogTagText, { color: colors.textSecondary }]}>
-                        {dog.size}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Datas e valor */}
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textPrimary }}>
-                    {formatCurrency(calcTotalValue(dog))}
-                  </Text>
-                  <Text style={styles.dogCheckout}>
-                    Saída: {formatDate(dog.checkOut)}
-                  </Text>
-                  {dog.medicationTimes.length > 0 && (
-                    <View style={{ marginTop: 4, flexDirection: "row", alignItems: "center", gap: 3 }}>
-                      <Ionicons name="medical" size={11} color="#8E24AA" />
-                      <Text style={{ fontSize: 10, color: "#8E24AA", fontWeight: "600" }}>
-                        {dog.medicationTimes.join(" · ")}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })
+          upcoming.map((e, i) => (
+            <View key={i} style={styles.eventRow}>
+              <View style={[styles.eventDot, { backgroundColor: e.type === "in" ? colors.success : colors.danger }]} />
+              <Text style={styles.eventName}>{e.dog.name}</Text>
+              <Text style={styles.eventDate}>
+                {e.type === "in" ? "Entrada" : "Saída"} · {fmtDate(e.date)}
+              </Text>
+            </View>
+          ))
         )}
 
-        <View style={{ height: 80 }} />
+        {/* Lista de hospedados */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Hospedados agora</Text>
+          <Text style={styles.sectionAction} onPress={() => setModal(true)}>+ Novo</Text>
+        </View>
+        {active.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="paw-outline" size={36} color={colors.border} />
+            <Text style={styles.emptyText}>Nenhum hóspede ativo</Text>
+            <Text style={styles.emptySub}>Toque em "+ Novo" para cadastrar</Text>
+          </View>
+        ) : (
+          active.map((dog) => (
+            <TouchableOpacity
+              key={dog.id}
+              style={ms.dogRow}
+              onLongPress={() => handleRemove(dog)}
+              activeOpacity={0.85}
+            >
+              <View style={ms.dogAvatar}>
+                <Text style={{ fontSize: 20 }}>{sizeEmoji(dog.size)}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={ms.dogName}>{dog.name}</Text>
+                <Text style={ms.dogOwner}>{dog.ownerName} · {dog.size}</Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={ms.dogValue}>{formatCurrency(calcTotalValue(dog))}</Text>
+                <Text style={ms.dogDate}>Saída: {fmtDate(dog.checkOut)}</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── FAB ──────────────────────────────────────────────────────────── */}
-      <TouchableOpacity style={styles.fab} onPress={() => setShowModal(true)} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color={colors.textPrimary} />
+      <TouchableOpacity style={styles.fab} onPress={() => setModal(true)} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color="#1A2030" />
       </TouchableOpacity>
 
-      {/* ── Modal de cadastro ─────────────────────────────────────────────── */}
-      <AddDogModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        onSave={handleSaveDog}
-      />
+      <AddDogModal visible={modal} onClose={() => setModal(false)} onSave={handleSave} />
     </SafeAreaView>
   );
 }
 
-// ─── Sub-componente: Métrica ──────────────────────────────────────────────────
-
-interface MetricCardProps {
+function Metric({ icon, bg, color, v, label, currency }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
-  iconBg: string;
-  iconColor: string;
-  value: number;
-  label: string;
-}
-
-function MetricCard({ icon, iconBg, iconColor, value, label }: MetricCardProps) {
+  bg: string; color: string; v: number; label: string; currency?: string;
+}) {
   return (
     <View style={styles.metricCard}>
-      <View style={[styles.metricIconWrap, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={18} color={iconColor} />
+      <View style={[styles.metricIcon, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={18} color={color} />
       </View>
-      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricValue}>{currency ?? v}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
 }
 
-// ─── Estilos do modal (locais) ────────────────────────────────────────────────
-
-import { StyleSheet } from "react-native";
-import { SchedulableTriggerInputTypes } from "expo-notifications";
-
-const modalStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  modalHeader: {
+const ms = StyleSheet.create({
+  field: { marginBottom: 14 },
+  dogRow: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 14,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  saveBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.cyan,
-    borderRadius: radius.pill,
-  },
-  saveBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
     gap: 12,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
   },
-  field: {
-    gap: 6,
+  dogAvatar: {
+    width: 44, height: 44, borderRadius: 999,
+    backgroundColor: "#E0FBFF",
+    alignItems: "center", justifyContent: "center",
   },
-  label: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  selectorRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  selectorBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  selectorBtnActive: {
-    backgroundColor: colors.cyan,
-    borderColor: colors.cyan,
-  },
-  selectorText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  selectorTextActive: {
-    color: colors.textPrimary,
-  },
+  dogName: { fontSize: 15, fontWeight: "700", color: "#1A2030" },
+  dogOwner: { fontSize: 12, color: "#5A6478", marginTop: 1 },
+  dogValue: { fontSize: 14, fontWeight: "700", color: "#1A2030" },
+  dogDate: { fontSize: 11, color: "#9BA3B0", marginTop: 2 },
 });
