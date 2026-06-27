@@ -133,11 +133,7 @@ export default function RootLayout() {
           {/* Login: href:null remove da tab bar + tabBarButton esconde qualquer resquício */}
           <Tabs.Screen
             name="login/login-page"
-            options={{
-              href: null,
-              tabBarButton: () => null,
-              tabBarStyle: { display: "none" },
-            }}
+            options={{ href: null }}
           />
         </Tabs>
       </AuthContext.Provider>
