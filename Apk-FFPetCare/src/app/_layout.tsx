@@ -87,24 +87,22 @@ export default function RootLayout() {
             headerShown: false,
             tabBarActiveTintColor: CYAN,
             tabBarInactiveTintColor: "#9BA3B0",
-            // Esconde a tab bar INTEIRA na tela de login
-            tabBarStyle: status === "guest"
-              ? { display: "none" }
-              : {
-                  backgroundColor: "#FFFFFF",
-                  borderTopWidth: 0,
-                  elevation: 12,
-                  shadowColor: "#000",
-                  shadowOpacity: 0.06,
-                  shadowOffset: { width: 0, height: -2 },
-                  shadowRadius: 8,
-                  height: 64,
-                  paddingBottom: 10,
-                  paddingTop: 8,
-                },
+            tabBarStyle: {
+              backgroundColor: "#FFFFFF",
+              borderTopWidth: 0,
+              elevation: 12,
+              shadowColor: "#000",
+              shadowOpacity: 0.06,
+              shadowOffset: { width: 0, height: -2 },
+              shadowRadius: 8,
+              height: 64,
+              paddingBottom: 10,
+              paddingTop: 8,
+            },
             tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
           }}
         >
+          {/* Ordem correta: Dashboard → Rotina → Ajustes */}
           <Tabs.Screen
             name="dashboard/dashboard-page"
             options={{
@@ -132,11 +130,12 @@ export default function RootLayout() {
               ),
             }}
           />
-          {/* Login fora da tab bar visualmente — escondida pelo tabBarStyle acima */}
+          {/* Login: href:null remove da tab bar + tabBarButton esconde qualquer resquício */}
           <Tabs.Screen
             name="login/login-page"
             options={{
               href: null,
+              tabBarButton: () => null,
               tabBarStyle: { display: "none" },
             }}
           />
