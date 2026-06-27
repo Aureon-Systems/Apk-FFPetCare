@@ -10,9 +10,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   loadDogs, saveDogs, isActiveToday, calcTotalValue,
   formatCurrency, fmtDate, monthRevenue, parseLocalDate, todayISO,
-} from "../lib/storage";
-import { styles, colors } from "../styles/style-dashboard";
-import { Dog, DailyTask, DogSize } from "../lib/types";
+} from "../../lib/storage";
+import { styles, colors } from "../../styles/style-dashboard";
+import { Dog, DailyTask, DogSize } from "../../lib/types";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 

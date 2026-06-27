@@ -8,9 +8,9 @@ import { Calendar, DateData } from "react-native-calendars";
 import {
   loadDogs, saveDogs, parseLocalDate, todayISO,
   isTaskDoneToday, fmtDate,
-} from "../lib/storage";
-import { Dog, DailyTask } from "../lib/types";
-import { styles, colors } from "../styles/style-routine";
+} from "../../lib/storage";
+import { Dog, DailyTask } from "../../lib/types";
+import { styles, colors } from "../../styles/style-routine";
 
 // ─── Tipos de marcação do calendário ─────────────────────────────────────────
 

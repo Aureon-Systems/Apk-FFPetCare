@@ -5,9 +5,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { writeSession } from "../lib/storage";
-import { useAuth } from "./_layout";
-import { styles, colors } from "../styles/style-login";
+import { writeSession } from "../../lib/storage";
+import { useAuth } from "../_layout";
+import { styles, colors } from "../../styles/style-login";
 
 // ─── Credenciais ──────────────────────────────────────────────────────────────
 const EMAIL    = "admin";

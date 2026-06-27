@@ -3,10 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch } fr
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { loadSettings, saveSettings, clearSession, sessionDaysLeft } from "../lib/storage";
-import { useAuth } from "./_layout";
-import { AppSettings } from "../lib/types";
-import { styles, colors } from "../styles/style-settings";
+import { loadSettings, saveSettings, sessionDaysLeft } from "../../lib/storage";
+import { useAuth } from "../_layout";
+import { AppSettings } from "../../lib/types";
+import { styles, colors } from "../../styles/style-settings";
 
 export default function SettingsPage() {
   const { signOut } = useAuth();
@@ -29,7 +29,6 @@ export default function SettingsPage() {
     Alert.alert("Sair", "Você precisará fazer login novamente.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: async () => {
-        await clearSession();
         await signOut();
       }},
     ]);
