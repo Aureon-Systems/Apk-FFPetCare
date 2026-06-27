@@ -102,9 +102,8 @@ export default function RootLayout() {
             tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
           }}
         >
-          {/* Ordem correta: Dashboard → Rotina → Ajustes */}
           <Tabs.Screen
-            name="dashboard/dashboard-page"
+            name="dashboard-page"
             options={{
               title: "Painel",
               tabBarIcon: ({ color, size }) => (
@@ -113,7 +112,7 @@ export default function RootLayout() {
             }}
           />
           <Tabs.Screen
-            name="routine/routine-page"
+            name="routine-page"
             options={{
               title: "Rotina",
               tabBarIcon: ({ color, size }) => (
@@ -122,7 +121,7 @@ export default function RootLayout() {
             }}
           />
           <Tabs.Screen
-            name="settings/settings-page"
+            name="settings-page"
             options={{
               title: "Ajustes",
               tabBarIcon: ({ color, size }) => (
@@ -130,9 +129,8 @@ export default function RootLayout() {
               ),
             }}
           />
-          {/* Login: href:null remove da tab bar + tabBarButton esconde qualquer resquício */}
           <Tabs.Screen
-            name="login/login-page"
+            name="login-page"
             options={{ href: null }}
           />
         </Tabs>
