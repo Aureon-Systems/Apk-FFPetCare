@@ -78,13 +78,16 @@ function AddDogModal({ visible, onClose, onSave }: {
     onClose();
   };
 
- type FieldProps = {
-  label: string;
-  value: string;
-  onChange: (text: string) => void;
-  } & Partial<React.ComponentProps<typeof TextInput>>;
+  type FieldProps = Omit<
+    React.ComponentProps<typeof TextInput>,
+    "onChangeText"
+  > & {
+    label: string;
+    value: string;
+    onChangeText: (text: string) => void;
+  };
 
-  function Field({ label, value, onChange, ...props }: FieldProps) {
+  function Field({ label, value, onChangeText, ...props }: FieldProps) {
     return (
       <View style={ms.field}>
         <Text style={styles.fieldLabel}>{label}</Text>
@@ -92,7 +95,7 @@ function AddDogModal({ visible, onClose, onSave }: {
         <TextInput
           style={styles.input}
           value={value}
-          onChangeText={(text) => onChange(text)}
+          onChangeText={onChangeText}
           placeholderTextColor={colors.textMuted}
           {...props}
         />
@@ -162,14 +165,14 @@ function AddDogModal({ visible, onClose, onSave }: {
             <Field
               label="Dono *"
               value={f.ownerName}
-              onChange={(text) => set("ownerName", text)}
+              onChangeText={(v) => set("ownerName", v)}
               placeholder="Ex: João Silva"
             />
 
             <Field
               label="Telefone do dono"
               value={f.ownerPhone}
-              onChange={(v) => set("ownerPhone", v)}
+              onChangeText={(v) => set("ownerPhone", v)}
               placeholder="(79) 9 0000-0000"
               keyboardType="phone-pad"
             />
@@ -184,7 +187,7 @@ function AddDogModal({ visible, onClose, onSave }: {
             <Field
               label="Entrada (AAAA-MM-DD) *"
               value={f.checkIn}
-              onChange={(v) => set("checkIn", v)}
+              onChangeText={(v) => set("checkIn", v)}
               placeholder="YYYY-MM-DD"
               keyboardType="numbers-and-punctuation"
             />
@@ -192,7 +195,7 @@ function AddDogModal({ visible, onClose, onSave }: {
             <Field
               label="Saída (AAAA-MM-DD) *"
               value={f.checkOut}
-              onChange={(v) => set("checkOut", v)}
+              onChangeText={(v) => set("checkOut", v)}
               placeholder="YYYY-MM-DD"
               keyboardType="numbers-and-punctuation"
             />
@@ -200,7 +203,7 @@ function AddDogModal({ visible, onClose, onSave }: {
             <Field
               label="Diária R$"
               value={f.dailyRate}
-              onChange={(v) => set("dailyRate", v)}
+              onChangeText={(v) => set("dailyRate", v)}
               keyboardType="decimal-pad"
               placeholder="Ex: 50.00"
             />
@@ -208,21 +211,21 @@ function AddDogModal({ visible, onClose, onSave }: {
             <Field
               label="Horários de passeio (sep. vírgula)"
               value={f.walkTimes}
-              onChange={(v) => set("walkTimes", v)}
+              onChangeText={(v) => set("walkTimes", v)}
               placeholder="07:00, 17:00"
             />
 
             <Field
               label="Horários de medicação (sep. vírgula)"
               value={f.medicationTimes}
-              onChange={(v) => set("medicationTimes", v)}
+              onChangeText={(v) => set("medicationTimes", v)}
               placeholder="08:00, 20:00"
             />
 
             <Field
               label="Observações"
               value={f.notes}
-              onChange={(v) => set("notes", v)}
+              onChangeText={(v) => set("notes", v)}
               placeholder="Alimentação especial, temperamento..."
               multiline
               numberOfLines={3}
