@@ -50,6 +50,7 @@ function AddDogModal({ visible, onClose, onSave }: {
   onClose: () => void;
   onSave: (d: Dog) => void;
 }) {
+  console.log("Modal render");
   const [f, setF] = useState(EMPTY);
   const set = (k: keyof typeof EMPTY, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -77,27 +78,56 @@ function AddDogModal({ visible, onClose, onSave }: {
     onClose();
   };
 
-  const Field = ({ label, fk, ...p }: { label: string; fk: keyof typeof EMPTY } & Partial<React.ComponentProps<typeof TextInput>>) => (
-    <View style={ms.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput style={styles.input} value={String(f[fk])} onChangeText={(v) => set(fk, v)} placeholderTextColor={colors.textMuted} {...p} />
-    </View>
-  );
+ type FieldProps = {
+  label: string;
+  value: string;
+  onChange: (text: string) => void;
+  } & Partial<React.ComponentProps<typeof TextInput>>;
 
-  const Chips = ({ label, fk, opts }: { label: string; fk: keyof typeof EMPTY; opts: string[] }) => (
+  function Field({ label, value, onChange, ...props }: FieldProps) {
+    return (
+      <View style={ms.field}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={(text) => onChange(text)}
+          placeholderTextColor={colors.textMuted}
+          {...props}
+        />
+      </View>
+    );
+  }
+  const Chips = ({
+    label,
+    value,
+    onChange,
+    opts,
+  }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    opts: string[];
+  }) => (
     <View style={ms.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
+
       <View style={styles.chips}>
         {opts.map((o) => (
           <TouchableOpacity
             key={o}
-            style={[styles.chip, f[fk] === o && styles.chipActive]}
+            style={[styles.chip, value === o && styles.chipActive]}
             onPress={() => {
-              set(fk, o);
-              if (fk === "size") set("dailyRate", defaultRate(o as DogSize));
+              onChange(o);
+              if (label === "Porte") {
+                set("dailyRate", defaultRate(o as DogSize));
+              }
             }}
           >
-            <Text style={[styles.chipText, f[fk] === o && styles.chipTextActive]}>{o}</Text>
+            <Text style={[styles.chipText, value === o && styles.chipTextActive]}>
+              {o}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -118,16 +148,85 @@ function AddDogModal({ visible, onClose, onSave }: {
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalScroll}>
-            <Field label="Nome do cão *" fk="name" placeholder="Ex: Thor" />
-            <Field label="Dono *" fk="ownerName" placeholder="Ex: João Silva" />
-            <Field label="Telefone do dono" fk="ownerPhone" placeholder="(79) 9 0000-0000" keyboardType="phone-pad" />
-            <Chips label="Porte" fk="size" opts={["Pequeno", "Médio", "Grande"]} />
-            <Field label="Entrada (AAAA-MM-DD) *" fk="checkIn" placeholder={todayISO()} keyboardType="numbers-and-punctuation" />
-            <Field label="Saída (AAAA-MM-DD) *" fk="checkOut" placeholder="2025-07-05" keyboardType="numbers-and-punctuation" />
-            <Field label="Diária R$" fk="dailyRate" keyboardType="decimal-pad" />
-            <Field label="Horários de passeio (sep. vírgula)" fk="walkTimes" placeholder="07:00, 17:00" />
-            <Field label="Horários de medicação (sep. vírgula)" fk="medicationTimes" placeholder="08:00, 20:00" />
-            <Field label="Observações" fk="notes" placeholder="Alimentação especial, temperamento..." multiline numberOfLines={3} />
+            <View style={ms.field}>
+              <Text style={styles.fieldLabel}>Nome do cão *</Text>
+
+              <TextInput
+                style={styles.input}
+                value={f.name}
+                onChangeText={(v) => set("name", v)}
+                placeholder="Ex: Thor"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+            <Field
+              label="Dono *"
+              value={f.ownerName}
+              onChange={(text) => set("ownerName", text)}
+              placeholder="Ex: João Silva"
+            />
+
+            <Field
+              label="Telefone do dono"
+              value={f.ownerPhone}
+              onChange={(v) => set("ownerPhone", v)}
+              placeholder="(79) 9 0000-0000"
+              keyboardType="phone-pad"
+            />
+
+            <Chips
+              label="Porte"
+              value={f.size}
+              onChange={(v) => set("size", v)}
+              opts={["Pequeno", "Médio", "Grande"]}
+            />
+
+            <Field
+              label="Entrada (AAAA-MM-DD) *"
+              value={f.checkIn}
+              onChange={(v) => set("checkIn", v)}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+            />
+
+            <Field
+              label="Saída (AAAA-MM-DD) *"
+              value={f.checkOut}
+              onChange={(v) => set("checkOut", v)}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+            />
+
+            <Field
+              label="Diária R$"
+              value={f.dailyRate}
+              onChange={(v) => set("dailyRate", v)}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 50.00"
+            />
+
+            <Field
+              label="Horários de passeio (sep. vírgula)"
+              value={f.walkTimes}
+              onChange={(v) => set("walkTimes", v)}
+              placeholder="07:00, 17:00"
+            />
+
+            <Field
+              label="Horários de medicação (sep. vírgula)"
+              value={f.medicationTimes}
+              onChange={(v) => set("medicationTimes", v)}
+              placeholder="08:00, 20:00"
+            />
+
+            <Field
+              label="Observações"
+              value={f.notes}
+              onChange={(v) => set("notes", v)}
+              placeholder="Alimentação especial, temperamento..."
+              multiline
+              numberOfLines={3}
+            />
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
