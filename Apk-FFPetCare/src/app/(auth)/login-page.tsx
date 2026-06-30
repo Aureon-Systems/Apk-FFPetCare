@@ -5,24 +5,34 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { writeSession } from "../../lib/storage";
 import { useAuth } from "../_layout";
+import { signInWithEmail } from "../../lib/auth-service";
 import { styles, colors } from "../../styles/style-login";
 
-// ─── Credenciais ──────────────────────────────────────────────────────────────
-const EMAIL    = "admin";
-const PASSWORD = "admin2025";
+// Mapeamento de erros do Supabase para mensagens amigáveis em pt-BR
+function friendlyError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login") || m.includes("invalid credentials"))
+    return "E-mail ou senha incorretos.";
+  if (m.includes("email not confirmed"))
+    return "Confirme seu e-mail antes de entrar.";
+  if (m.includes("too many requests"))
+    return "Muitas tentativas. Aguarde alguns minutos.";
+  if (m.includes("network") || m.includes("fetch"))
+    return "Sem conexão. Verifique sua internet.";
+  return "Não foi possível entrar. Tente novamente.";
+}
 
 export default function LoginPage() {
-  const { signIn } = useAuth();           // ← usa context, não router.replace()
+  const { signIn } = useAuth();
 
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [showPwd, setShowPwd]     = useState(false);
-  const [emailFocused, setEF]     = useState(false);
-  const [pwdFocused, setPF]       = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [loading, setLoading]     = useState(false);
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd]   = useState(false);
+  const [emailFocused, setEF]   = useState(false);
+  const [pwdFocused, setPF]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
   const pwdRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
@@ -36,19 +46,17 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    // Sem delay artificial — resposta imediata
-    if (email.trim().toLowerCase() !== EMAIL || password !== PASSWORD) {
-      setError("E-mail ou senha incorretos.");
-      setLoading(false);
-      return;
-    }
+    try {
+      // Autentica no Supabase e grava o timestamp da sessão
+      await signInWithEmail(email.trim(), password);
 
-    // 1. Grava a sessão no AsyncStorage
-    await writeSession();
-    // 2. Sinaliza ao layout → ele atualiza status → useEffect redireciona
-    //    Não chamamos router.replace() aqui — evita conflito de navegação
-    await signIn();
-    // loading permanece true até o redirect acontecer (< 1 frame)
+      // Sinaliza ao layout pai → ele detecta a sessão e redireciona
+      await signIn();
+      // loading permanece true até o redirect acontecer
+    } catch (err: any) {
+      setError(friendlyError(err?.message ?? ""));
+      setLoading(false);
+    }
   };
 
   const filled = email.trim().length > 0 && password.length > 0;

@@ -7,10 +7,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import {
-  loadDogs, saveDogs, isActiveToday, calcTotalValue,
-  formatCurrency, fmtDate, monthRevenue, parseLocalDate, todayISO,
-} from "../../lib/storage";
+import { isActiveToday, calcTotalValue, formatCurrency, fmtDate, monthRevenue, parseLocalDate, todayISO, } from "../../lib/storage";
+import { loadDogs, insertDog, removeDog } from "../../lib/dogs-service";
 import { styles, colors } from "../../styles/style-dashboard";
 import { Dog, DailyTask, DogSize } from "../../lib/types";
 
@@ -241,7 +239,15 @@ export default function DashboardPage() {
   const [modal, setModal] = useState(false);
   const router = useRouter();
 
-  useFocusEffect(useCallback(() => { loadDogs().then(setDogs); }, []));
+useFocusEffect(
+  useCallback(() => {
+    let ativo = true;
+    loadDogs().then((data) => {
+      if (ativo) setDogs(data);
+    });
+    return () => { ativo = false; };
+  }, [])
+);
 
   const active = dogs.filter(isActiveToday);
   const cap = capStatus(active.length);
@@ -263,24 +269,31 @@ export default function DashboardPage() {
     return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   })();
 
-  const handleSave = useCallback(async (dog: Dog) => {
-    const updated = [...dogs, dog];
-    setDogs(updated);
-    await saveDogs(updated);
-  }, [dogs]);
+const handleSave = useCallback(async (dog: Dog) => {
+  const novo = await insertDog(dog);
+  if (novo) {
+    setDogs((prev) => [...prev, novo]);
+  } else {
+    Alert.alert("Erro", "Não foi possível salvar a hospedagem.");
+  }
+}, []);
 
-  const handleRemove = useCallback((dog: Dog) => {
-    Alert.alert("Remover hóspede", `Remover ${dog.name}?`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Remover", style: "destructive",
-        onPress: async () => {
-          const updated = dogs.filter((d) => d.id !== dog.id);
-          setDogs(updated); await saveDogs(updated);
-        },
+const handleRemove = useCallback((dog: Dog) => {
+  Alert.alert("Remover hóspede", `Remover ${dog.name}?`, [
+    { text: "Cancelar", style: "cancel" },
+    {
+      text: "Remover", style: "destructive",
+      onPress: async () => {
+        const ok = await removeDog(dog.id);
+        if (ok) {
+          setDogs((prev) => prev.filter((d) => d.id !== dog.id));
+        } else {
+          Alert.alert("Erro", "Não foi possível remover a hospedagem.");
+        }
       },
-    ]);
-  }, [dogs]);
+    },
+  ]);
+}, []);
 
   const greeting = () => {
     const h = new Date().getHours();

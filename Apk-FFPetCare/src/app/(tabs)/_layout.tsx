@@ -55,6 +55,19 @@ export default function TabsLayout() {
           ),
         }}
       />
+            <Tabs.Screen
+        name="dogs-page"
+        options={{
+          title: "Dog",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="paw-outline"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
 
       <Tabs.Screen
         name="settings-page"
