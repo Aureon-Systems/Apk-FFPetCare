@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
   Modal, ScrollView, Alert, KeyboardAvoidingView,
-  Platform, ActivityIndicator,
+  Platform, ActivityIndicator, StyleSheet
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -84,25 +84,27 @@ function AddDogModal({
     onClose();
   };
 
-  function Field({
-    label, value, onChange, hint, ...rest
-  }: {
-    label: string; value: string; onChange: (v: string) => void; hint?: string;
-  } & Partial<React.ComponentProps<typeof TextInput>>) {
-    const [focused, setFocused] = useState(false);
+  type FieldProps = Omit<
+    React.ComponentProps<typeof TextInput>,
+    "onChangeText"
+  > & {
+    label: string;
+    value: string;
+    onChangeText: (text: string) => void;
+  };
+
+  function Field({ label, value, onChangeText, ...props }: FieldProps) {
     return (
-      <View style={{ marginBottom: 16 }}>
+      <View style={ms.field}>
         <Text style={styles.fieldLabel}>{label}</Text>
+
         <TextInput
-          style={[styles.input, focused && styles.inputFocused]}
+          style={styles.input}
           value={value}
-          onChangeText={onChange}
+          onChangeText={onChangeText}
           placeholderTextColor={colors.textMuted}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          {...rest}
+          {...props}
         />
-        {hint ? <Text style={styles.formHint}>{hint}</Text> : null}
       </View>
     );
   }
@@ -153,21 +155,21 @@ function AddDogModal({
             <Field
               label="Nome do cão *"
               value={f.name}
-              onChange={(v) => set("name", v)}
+              onChangeText={(v) => set("name", v)}
               placeholder="Ex: Thor"
               autoCapitalize="words"
             />
             <Field
               label="Dono *"
               value={f.ownerName}
-              onChange={(v) => set("ownerName", v)}
+              onChangeText={(v) => set("ownerName", v)}
               placeholder="Ex: João Silva"
               autoCapitalize="words"
             />
             <Field
               label="Telefone do dono"
               value={f.ownerPhone}
-              onChange={(v) => set("ownerPhone", v)}
+              onChangeText={(v) => set("ownerPhone", v)}
               placeholder="(79) 9 0000-0000"
               keyboardType="phone-pad"
             />
@@ -180,44 +182,40 @@ function AddDogModal({
             <Field
               label="Entrada *"
               value={f.checkIn}
-              onChange={(v) => set("checkIn", v)}
+              onChangeText={(v) => set("checkIn", v)}
               placeholder="AAAA-MM-DD"
               keyboardType="numbers-and-punctuation"
-              hint="Formato: 2025-07-20"
             />
             <Field
               label="Saída *"
               value={f.checkOut}
-              onChange={(v) => set("checkOut", v)}
+              onChangeText={(v) => set("checkOut", v)}
               placeholder="AAAA-MM-DD"
               keyboardType="numbers-and-punctuation"
-              hint="Formato: 2025-07-25"
             />
             <Field
               label="Diária R$"
               value={f.dailyRate}
-              onChange={(v) => set("dailyRate", v)}
+              onChangeText={(v) => set("dailyRate", v)}
               keyboardType="decimal-pad"
               placeholder="70,00"
             />
             <Field
               label="Horários de passeio"
               value={f.walkTimes}
-              onChange={(v) => set("walkTimes", v)}
+              onChangeText={(v) => set("walkTimes", v)}
               placeholder="07:00, 17:00"
-              hint="Separe múltiplos horários por vírgula"
             />
             <Field
               label="Horários de medicação"
               value={f.medicationTimes}
-              onChange={(v) => set("medicationTimes", v)}
+              onChangeText={(v) => set("medicationTimes", v)}
               placeholder="08:00, 20:00"
-              hint="Separe múltiplos horários por vírgula"
             />
             <Field
               label="Observações"
               value={f.notes}
-              onChange={(v) => set("notes", v)}
+              onChangeText={(v) => set("notes", v)}
               placeholder="Alimentação especial, temperamento..."
               multiline
               numberOfLines={3}
@@ -498,3 +496,30 @@ export default function DogsPage() {
     </SafeAreaView>
   );
 }
+
+const ms = StyleSheet.create({
+  field: { marginBottom: 14 },
+  dogRow: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  dogAvatar: {
+    width: 44, height: 44, borderRadius: 999,
+    backgroundColor: "#E0FBFF",
+    alignItems: "center", justifyContent: "center",
+  },
+  dogName: { fontSize: 15, fontWeight: "700", color: "#1A2030" },
+  dogOwner: { fontSize: 12, color: "#5A6478", marginTop: 1 },
+  dogValue: { fontSize: 14, fontWeight: "700", color: "#1A2030" },
+  dogDate: { fontSize: 11, color: "#9BA3B0", marginTop: 2 },
+});
