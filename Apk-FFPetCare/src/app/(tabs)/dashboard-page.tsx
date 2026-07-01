@@ -1,25 +1,19 @@
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, KeyboardAvoidingView,
-  Platform, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { isActiveToday, calcTotalValue, formatCurrency, fmtDate, monthRevenue, parseLocalDate, todayISO, } from "../../lib/storage";
-import { loadDogs, insertDog, removeDog } from "../../lib/dogs-service";
+import { isActiveToday, calcTotalValue, formatCurrency, fmtDate, monthRevenue, parseLocalDate, loadSettings } from "../../lib/storage";
+import { loadDogs, removeDog } from "../../lib/dogs-service";
 import { styles, colors } from "../../styles/style-dashboard";
-import { Dog, DailyTask, DogSize } from "../../lib/types";
-
-// ─── Constantes ──────────────────────────────────────────────────────────────
-
-const MAX_CAPACITY = 6;
+import { Dog, DogSize, DEFAULT_SETTINGS } from "../../lib/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function capStatus(n: number) {
-  const r = n / MAX_CAPACITY;
+function capStatus(n: number, maxCapacity: number) {
+  const r = n / maxCapacity;
   if (r < 0.5) return { label: "Disponível", color: colors.success, bg: colors.successLight };
   if (r < 0.84) return { label: "Moderado", color: colors.warning, bg: colors.warningLight };
   return { label: "Lotado", color: colors.danger, bg: colors.dangerLight };
@@ -29,217 +23,11 @@ function sizeEmoji(s: DogSize) {
   return s === "Grande" ? "🐕‍🦺" : "🐕";
 }
 
-function defaultRate(size: DogSize): string {
-  return size === "Pequeno" ? "50" : size === "Médio" ? "70" : "90";
-}
-
-// ─── Modal de cadastro de hospedagem ─────────────────────────────────────────
-
-const EMPTY = {
-  name: "", ownerName: "", ownerPhone: "",
-  size: "Médio" as DogSize,
-  checkIn: todayISO(), checkOut: "",
-  dailyRate: "70",
-  walkTimes: "", medicationTimes: "", notes: "",
-};
-
-function AddDogModal({ visible, onClose, onSave }: {
-  visible: boolean;
-  onClose: () => void;
-  onSave: (d: Dog) => void;
-}) {
-  console.log("Modal render");
-  const [f, setF] = useState(EMPTY);
-  const set = (k: keyof typeof EMPTY, v: string) => setF((p) => ({ ...p, [k]: v }));
-
-  const handleSave = () => {
-    if (!f.name.trim() || !f.ownerName.trim() || !f.checkOut.trim()) {
-      Alert.alert("Campos obrigatórios", "Nome do cão, dono e data de saída são necessários.");
-      return;
-    }
-    const tasks: DailyTask[] = [];
-    f.walkTimes.split(",").map((t) => t.trim()).filter(Boolean).forEach((time, i) =>
-      tasks.push({ id: `w${i}_${Date.now()}`, type: "walk", time, doneOn: [] })
-    );
-    f.medicationTimes.split(",").map((t) => t.trim()).filter(Boolean).forEach((time, i) =>
-      tasks.push({ id: `m${i}_${Date.now()}`, type: "medication", time, doneOn: [] })
-    );
-    const dog: Dog = {
-      id: `dog_${Date.now()}`,
-      name: f.name.trim(), ownerName: f.ownerName.trim(), ownerPhone: f.ownerPhone.trim(),
-      size: f.size, checkIn: f.checkIn, checkOut: f.checkOut,
-      dailyRate: parseFloat(f.dailyRate) || 70,
-      tasks, notes: f.notes.trim(),
-    };
-    onSave(dog);
-    setF(EMPTY);
-    onClose();
-  };
-
-  type FieldProps = Omit<
-    React.ComponentProps<typeof TextInput>,
-    "onChangeText"
-  > & {
-    label: string;
-    value: string;
-    onChangeText: (text: string) => void;
-  };
-
-  function Field({ label, value, onChangeText, ...props }: FieldProps) {
-    return (
-      <View style={ms.field}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-
-        <TextInput
-          style={styles.input}
-          value={value}
-          onChangeText={onChangeText}
-          placeholderTextColor={colors.textMuted}
-          {...props}
-        />
-      </View>
-    );
-  }
-  const Chips = ({
-    label,
-    value,
-    onChange,
-    opts,
-  }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    opts: string[];
-  }) => (
-    <View style={ms.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-
-      <View style={styles.chips}>
-        {opts.map((o) => (
-          <TouchableOpacity
-            key={o}
-            style={[styles.chip, value === o && styles.chipActive]}
-            onPress={() => {
-              onChange(o);
-              if (label === "Porte") {
-                set("dailyRate", defaultRate(o as DogSize));
-              }
-            }}
-          >
-            <Text style={[styles.chipText, value === o && styles.chipTextActive]}>
-              {o}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
-              <Ionicons name="close" size={22} color={colors.textSub} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Nova Hospedagem</Text>
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSave}>
-              <Text style={styles.modalSaveBtnText}>Salvar</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
-            <View style={ms.field}>
-              <Text style={styles.fieldLabel}>Nome do cão *</Text>
-
-              <TextInput
-                style={styles.input}
-                value={f.name}
-                onChangeText={(v) => set("name", v)}
-                placeholder="Ex: Thor"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-            <Field
-              label="Dono *"
-              value={f.ownerName}
-              onChangeText={(v) => set("ownerName", v)}
-              placeholder="Ex: João Silva"
-            />
-
-            <Field
-              label="Telefone do dono"
-              value={f.ownerPhone}
-              onChangeText={(v) => set("ownerPhone", v)}
-              placeholder="(79) 9 0000-0000"
-              keyboardType="phone-pad"
-            />
-
-            <Chips
-              label="Porte"
-              value={f.size}
-              onChange={(v) => set("size", v)}
-              opts={["Pequeno", "Médio", "Grande"]}
-            />
-
-            <Field
-              label="Entrada (AAAA-MM-DD) *"
-              value={f.checkIn}
-              onChangeText={(v) => set("checkIn", v)}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numbers-and-punctuation"
-            />
-
-            <Field
-              label="Saída (AAAA-MM-DD) *"
-              value={f.checkOut}
-              onChangeText={(v) => set("checkOut", v)}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numbers-and-punctuation"
-            />
-
-            <Field
-              label="Diária R$"
-              value={f.dailyRate}
-              onChangeText={(v) => set("dailyRate", v)}
-              keyboardType="decimal-pad"
-              placeholder="Ex: 50.00"
-            />
-
-            <Field
-              label="Horários de passeio (sep. vírgula)"
-              value={f.walkTimes}
-              onChangeText={(v) => set("walkTimes", v)}
-              placeholder="07:00, 17:00"
-            />
-
-            <Field
-              label="Horários de medicação (sep. vírgula)"
-              value={f.medicationTimes}
-              onChangeText={(v) => set("medicationTimes", v)}
-              placeholder="08:00, 20:00"
-            />
-
-            <Field
-              label="Observações"
-              value={f.notes}
-              onChangeText={(v) => set("notes", v)}
-              placeholder="Alimentação especial, temperamento..."
-              multiline
-              numberOfLines={3}
-            />
-          </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const [dogs, setDogs] = useState<Dog[]>([]);
-  const [modal, setModal] = useState(false);
+  const [maxCapacity, setMaxCapacity] = useState(DEFAULT_SETTINGS.maxCapacity);
   const router = useRouter();
 
 useFocusEffect(
@@ -248,13 +36,16 @@ useFocusEffect(
     loadDogs().then((data) => {
       if (ativo) setDogs(data);
     });
+    loadSettings().then((s) => {
+      if (ativo) setMaxCapacity(s.maxCapacity);
+    });
     return () => { ativo = false; };
   }, [])
 );
 
   const active = dogs.filter(isActiveToday);
-  const cap = capStatus(active.length);
-  const fill = Math.min(active.length / MAX_CAPACITY, 1);
+  const cap = capStatus(active.length, maxCapacity);
+  const fill = Math.min(active.length / maxCapacity, 1);
   const fillColor = fill < 0.5 ? colors.success : fill < 0.84 ? colors.warning : colors.danger;
   const revenue = monthRevenue(dogs);
 
@@ -271,15 +62,6 @@ useFocusEffect(
     });
     return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   })();
-
-const handleSave = useCallback(async (dog: Dog) => {
-  const novo = await insertDog(dog);
-  if (novo) {
-    setDogs((prev) => [...prev, novo]);
-  } else {
-    Alert.alert("Erro", "Não foi possível salvar a hospedagem.");
-  }
-}, []);
 
 const handleRemove = useCallback((dog: Dog) => {
   Alert.alert("Remover hóspede", `Remover ${dog.name}?`, [
@@ -343,11 +125,11 @@ const handleRemove = useCallback((dog: Dog) => {
           <View style={styles.capacityNumbers}>
             <Text style={styles.capacityCurrent}>{active.length}</Text>
             <Text style={styles.capacitySlash}>/</Text>
-            <Text style={styles.capacityMax}>{MAX_CAPACITY}</Text>
+            <Text style={styles.capacityMax}>{maxCapacity}</Text>
           </View>
           <Text style={styles.capacitySub}>
-            {MAX_CAPACITY - active.length > 0
-              ? `${MAX_CAPACITY - active.length} vaga${MAX_CAPACITY - active.length > 1 ? "s" : ""} disponíve${MAX_CAPACITY - active.length > 1 ? "is" : "l"}`
+            {maxCapacity - active.length > 0
+              ? `${maxCapacity - active.length} vaga${maxCapacity - active.length > 1 ? "s" : ""} disponíve${maxCapacity - active.length > 1 ? "is" : "l"}`
               : "Hotel lotado hoje"}
           </Text>
           <View style={styles.track}>
@@ -355,7 +137,7 @@ const handleRemove = useCallback((dog: Dog) => {
           </View>
           <View style={styles.trackLabels}>
             <Text style={styles.trackLabel}>0</Text>
-            <Text style={styles.trackLabel}>{MAX_CAPACITY}</Text>
+            <Text style={styles.trackLabel}>{maxCapacity}</Text>
           </View>
         </View>
 
@@ -410,13 +192,13 @@ const handleRemove = useCallback((dog: Dog) => {
         {/* Lista de hospedados */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Hospedados agora</Text>
-          <Text style={styles.sectionAction} onPress={() => setModal(true)}>+ Novo</Text>
+          <Text style={styles.sectionAction} onPress={() => router.push("/routine-page")}>Ver tudo →</Text>
         </View>
         {active.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="paw-outline" size={36} color={colors.border} />
             <Text style={styles.emptyText}>Nenhum hóspede ativo</Text>
-            <Text style={styles.emptySub}>Toque em "+ Novo" para cadastrar</Text>
+            <Text style={styles.emptySub}>Cadastre uma hospedagem na aba Rotina</Text>
           </View>
         ) : (
           active.map((dog) => (
@@ -427,7 +209,9 @@ const handleRemove = useCallback((dog: Dog) => {
               activeOpacity={0.85}
             >
               <View style={ms.dogAvatar}>
-                <Text style={{ fontSize: 20 }}>{sizeEmoji(dog.size)}</Text>
+                {dog.photoUrl
+                  ? <Image source={{ uri: dog.photoUrl }} style={{ width: "100%", height: "100%", borderRadius: 999 }} />
+                  : <Text style={{ fontSize: 20 }}>{sizeEmoji(dog.size)}</Text>}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={ms.dogName}>{dog.name}</Text>
@@ -443,12 +227,6 @@ const handleRemove = useCallback((dog: Dog) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-
-      <TouchableOpacity style={styles.fab} onPress={() => setModal(true)} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color="#1A2030" />
-      </TouchableOpacity>
-
-      <AddDogModal visible={modal} onClose={() => setModal(false)} onSave={handleSave} />
     </SafeAreaView>
   );
 }
@@ -488,6 +266,7 @@ const ms = StyleSheet.create({
     width: 44, height: 44, borderRadius: 999,
     backgroundColor: "#E0FBFF",
     alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
   },
   dogName: { fontSize: 15, fontWeight: "700", color: "#1A2030" },
   dogOwner: { fontSize: 12, color: "#5A6478", marginTop: 1 },

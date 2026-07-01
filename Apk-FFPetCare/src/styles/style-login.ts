@@ -22,6 +22,7 @@ export const styles = StyleSheet.create({
     }),
   },
   logoTitle: { fontSize: 28, fontWeight: "800", color: C.text, letterSpacing: -1 },
+  logoImage: { width: 44, height: 44 },
   logoSub: { fontSize: 14, color: C.textMuted, marginTop: 4 },
 
   form: { gap: 14 },

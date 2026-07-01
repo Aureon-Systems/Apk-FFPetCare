@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -70,7 +70,11 @@ export default function LoginPage() {
         {/* Logo */}
         <View style={styles.logoWrap}>
           <View style={styles.logoCircle}>
-            <Ionicons name="paw" size={34} color="#1A2030" />
+            <Image
+              source={require("../../../assets/images/logo.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.logoTitle}>FFPetCare</Text>
           <Text style={styles.logoSub}>Área do cuidador</Text>

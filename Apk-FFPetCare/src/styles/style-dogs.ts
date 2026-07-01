@@ -149,6 +149,10 @@ export const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: "700" },
 
   dogCardDivider: { height: 1, backgroundColor: colors.border, marginBottom: 12 },
+  expandSectionTitle: {
+    fontSize: 12, fontWeight: "700", color: colors.cyanDim,
+    textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10,
+  },
 
   dogCardBottom: { flexDirection: "row", justifyContent: "space-between" },
   dogMeta: { gap: 3 },

@@ -133,3 +133,29 @@ export function fmtDate(iso: string): string {
 export function isTaskDoneToday(task: { doneOn: string[] }): boolean {
   return task.doneOn.includes(todayISO());
 }
+
+// ─── Status do serviço (Agendado / Hospedado / Concluído) ─────────────────────
+
+export function getServiceStatus(dog: Dog): "Agendado" | "Hospedado" | "Concluído" {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const ci = parseLocalDate(dog.checkIn);
+  const co = parseLocalDate(dog.checkOut);
+  if (today < ci) return "Agendado";
+  if (today > co) return "Concluído";
+  return "Hospedado";
+}
+
+// ─── Idade a partir da data de nascimento ─────────────────────────────────────
+
+export function ageFromBirthDate(iso?: string): string {
+  if (!iso) return "";
+  const birth = parseLocalDate(iso);
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  if (today.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (years <= 0) return `${Math.max(months, 0)} ${months === 1 ? "mês" : "meses"}`;
+  return `${years} ${years === 1 ? "ano" : "anos"}${months > 0 ? ` e ${months} ${months === 1 ? "mês" : "meses"}` : ""}`;
+}
