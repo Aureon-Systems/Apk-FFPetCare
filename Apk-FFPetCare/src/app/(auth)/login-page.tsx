@@ -77,7 +77,7 @@ export default function LoginPage() {
             />
           </View>
           <Text style={styles.logoTitle}>FFPetCare</Text>
-          <Text style={styles.logoSub}>Área do cuidador</Text>
+          {/* <Text style={styles.logoSub}>Área do cuidador</Text> */}
         </View>
 
         {/* Formulário */}

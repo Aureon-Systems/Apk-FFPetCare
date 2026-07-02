@@ -9,10 +9,10 @@ export const styles = StyleSheet.create({
 
   logoWrap: { alignItems: "center", marginBottom: 48 },
   logoCircle: {
-    width: 72,
-    height: 72,
+    width: 140,
+    height: 140,
     borderRadius: R.pill,
-    backgroundColor: C.cyan,
+    backgroundColor: C.white,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
     }),
   },
   logoTitle: { fontSize: 28, fontWeight: "800", color: C.text, letterSpacing: -1 },
-  logoImage: { width: 44, height: 44 },
+  logoImage: { width: 100, height: 100 },
   logoSub: { fontSize: 14, color: C.textMuted, marginTop: 4 },
 
   form: { gap: 14 },
