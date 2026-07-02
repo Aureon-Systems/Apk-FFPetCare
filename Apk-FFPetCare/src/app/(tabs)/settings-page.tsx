@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -96,7 +96,11 @@ export default function SettingsPage() {
         {/* Perfil */}
         <View style={styles.profileCard}>
           <View style={styles.profileAvatar}>
-            <Ionicons name="person" size={26} color={colors.cyan} />
+          <Image
+              source={require("../../../assets/images/logo.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>Felipe</Text>

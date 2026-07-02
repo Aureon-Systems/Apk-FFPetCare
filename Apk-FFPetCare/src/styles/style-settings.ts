@@ -19,6 +19,26 @@ export const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: "700", color: C.text, letterSpacing: -0.5 },
   headerSub: { fontSize: 13, color: C.textMuted, marginTop: 2 },
 
+  // ── Logo ─────────────────────────────────────────────────────────────────────
+  logoWrap: { alignItems: "center", marginBottom: 48 },
+  logoCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: R.pill,
+    backgroundColor: C.white,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    ...Platform.select({
+      ios: { shadowColor: C.white, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
+      android: { elevation: 8 },
+    }),
+  },
+    logoTitle: { fontSize: 28, fontWeight: "800", color: C.text, letterSpacing: -1 },
+    logoImage: { width: 60, height: 60 },
+    logoSub: { fontSize: 14, color: C.textMuted, marginTop: 4 },
+
+  // ── Profile ──────────────────────────────────────────────────────────────────
   profileCard: {
     backgroundColor: C.surface,
     borderRadius: R.lg,
@@ -33,7 +53,7 @@ export const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: R.pill,
-    backgroundColor: C.cyanLight,
+    backgroundColor: C.white,
     alignItems: "center",
     justifyContent: "center",
   },

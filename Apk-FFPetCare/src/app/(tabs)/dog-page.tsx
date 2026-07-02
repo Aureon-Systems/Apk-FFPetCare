@@ -207,7 +207,11 @@ export default function DogsPage() {
           <Text style={styles.headerTitle}>Hóspedes</Text>
         </View>
         <View style={styles.headerIcon}>
-          <Ionicons name="paw" size={20} color={colors.cyan} />
+          <Image
+              source={require("../../../assets/images/logo.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
         </View>
       </View>
 

@@ -90,11 +90,15 @@ const handleRemove = useCallback((dog: Dog) => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerGreeting}>{greeting()}, Felipe 👋</Text>
+          <Text style={styles.headerGreeting}>{greeting()}, Filipe 👋</Text>
           <Text style={styles.headerTitle}>Painel</Text>
         </View>
         <View style={styles.headerAvatar}>
-          <Ionicons name="paw" size={20} color={colors.cyan} />
+          <Image
+              source={require("../../../assets/images/logo.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
         </View>
       </View>
 

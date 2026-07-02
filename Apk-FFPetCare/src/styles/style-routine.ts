@@ -275,4 +275,4 @@ export const styles = StyleSheet.create({
   },
   pickerConfirmBtnDisabled: { opacity: 0.5 },
   pickerConfirmBtnText: { fontSize: 14, fontWeight: "700", color: C.text },
-});
+}); 
